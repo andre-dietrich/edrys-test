@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>arduino</title>
+
+    <script defer src="https://edrys-org.github.io/edrys/module/vendor/alpine.min.js"></script>
+    <link rel="stylesheet" href="https://edrys-org.github.io/edrys/module/vendor/water.min.css" />
+    <link rel="stylesheet" href="https://edrys-org.github.io/edrys/module/vendor/open-iconic/css/open-iconic.min.css" />
+    <script src="https://edrys-org.github.io/edrys/module/edrys.js"></script>
+    <!--script src="command-runner.js"></script-->
+    <script>
+        window.run_command = function(command, timeout = 30000, host = "http://localhost", port = 8585, options = {}) {
+            host = Edrys.module.config.command_runner_host || host
+            port = Edrys.module.config.command_runner_port || port
+
+            const abortController = new AbortController();
+            const abortTimeout = setTimeout(() => abortController.abort(), timeout);
+
+            const response = await fetch(`${host}:${port}/${encodeURIComponent(command)}`, {
+                ...options,
+                signal: abortController.signal
+            });
+
+            clearTimeout(abortTimeout)
+
+            return await response.text()
+        }
+
+        Edrys.onReady(() => {
+            console.log("Module is loaded!")
+
+            console.warn(Edrys.role);
+        });
+
+        Edrys.onMessage(
+            ({
+                from,
+                subject,
+                body,
+                module
+            }) => {
+                console.log("Got new message: ", from, subject, body, module)
+            }, promiscuous = true);
+
+        window.runCommand = async function () {
+            const cmd = document.getElementById("cmd").value
+
+            document.getElementById("output").innerText += "> " + cmd + "\n"
+
+            const output = await run_command(cmd)
+
+            console.warn(output);
+
+            document.getElementById("output").innerText += output + "\n"
+
+        }
+    </script>
+</head>
+
+<body>
+    <h1>Hello Shell</h1>
+
+    <input id="cmd" type="text"></input>
+    <button onclick="runCommand()">exec</button>
+    <div id="output"></div>
+
+</body>
+
+</html>
