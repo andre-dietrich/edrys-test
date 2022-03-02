@@ -15,30 +15,57 @@
         Edrys.onReady(() => {
             console.log("Module is loaded!")
 
-            console.warn(Edrys.role); 
+            console.warn(Edrys.role);
+            console.warn(Edrys)
         });
 
-        Edrys.onMessage(
-            ({
-                from,
-                subject,
-                body,
-                module
-            }) => {
-                console.log("Got new message: ", from, subject, body, module)
-            }, promiscuous = true);
+        Edrys.onMessage(async ({
+            from,
+            subject,
+            body
+        }) => {
+            console.log("Got new message: ", from, subject, body)
+
+            if (Edrys.role === "station") {
+                switch (subject) {
+                    case "cmd": {
+                        document.getElementById("output").innerText += "> " + body + "\n"
+                        const output = await run_command(body)
+                        console.warn(output);
+                        document.getElementById("output").innerText += output + "\n"
+                        Edrys.sendMessage("output", output)
+                        break
+                    }
+                }
+            } else {
+                switch (subject) {
+                    case "cmd": {
+                        document.getElementById("output").innerText += "> " + body + "\n"
+                        break
+                    }
+
+                    case "output": {
+                        console.warn(body);
+                        document.getElementById("output").innerText += body + "\n"
+                        break
+                    }
+                }
+            }
+        });
 
         window.runCommand = async function () {
             const cmd = document.getElementById("cmd").value
 
-            document.getElementById("output").innerText += "> " + cmd + "\n"
+            if (Edrys.role === 'station') {
+                document.getElementById("output").innerText += "> " + cmd + "\n"
+                const output = await run_command(cmd)
 
-            const output = await run_command(cmd)
+                console.warn(output);
 
-            console.warn(output);
-
-            document.getElementById("output").innerText += output + "\n"
-
+                document.getElementById("output").innerText += output + "\n"
+            } else {
+                Edrys.sendMessage("cmd", cmd)
+            }
         }
     </script>
 </head>
