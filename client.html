@@ -1,0 +1,206 @@
+<html>
+
+<head>
+    <title>Simple client</title>
+
+    <script defer src="https://edrys-org.github.io/edrys/module/vendor/alpine.min.js"></script>
+    <link rel="stylesheet" href="https://edrys-org.github.io/edrys/module/vendor/water.min.css" />
+    <link rel="stylesheet" href="https://edrys-org.github.io/edrys/module/vendor/open-iconic/css/open-iconic.min.css" />
+    <script src="https://edrys-org.github.io/edrys/module/edrys.js"></script>
+
+    <script type="text/javascript">
+        var ws;
+
+        function print(e) {
+            // e.data contains received string.
+            var data
+            var backup = e.data
+
+            try {
+                data = e.data
+                data = JSON.parse(data)
+            } catch (e) {
+                data = backup
+            }
+
+            if (typeof data === "string") {
+                output("onmessage: " + data);
+            } else if (data) {
+                var log = document.getElementById("log");
+                var escaped = data.response.replace(/&/, "&amp;").replace(/</, "&lt;").replace(/>/, "&gt;")
+                    .replace(/"/, "&quot;"); // "
+                log.innerHTML = escaped;
+                log.style.color = data.ok ? "unset" : "red";
+            }
+        }
+
+        function init() {
+            document.getElementById("filename").value = "main.c"
+
+
+            if (Edrys.role != "station")
+                return
+
+            // Connect to Web Socket
+            ws = new WebSocket("ws://localhost:10000/");
+
+            // Set event handlers.
+            ws.onopen = function () {
+                output("onopen");
+            };
+
+            ws.onmessage = function (e) {
+                // e.data contains received string.
+                print(e)
+                Edrys.sendMessage("update", e.data)
+            };
+
+            ws.onclose = function () {
+                output("onclose");
+            };
+
+            ws.onerror = function (e) {
+                output("onerror");
+                console.log(e)
+            };
+
+
+
+        }
+
+        Edrys.onReady(() => {
+            console.log("Module is loaded!")
+
+            console.warn(Edrys.role);
+            console.warn(Edrys)
+
+            init()
+        });
+
+
+        Edrys.onMessage(async ({
+            from,
+            subject,
+            body
+        }) => {
+            console.log("Got new message: ", from, subject, body)
+            
+            if (Edrys.role === "station") {
+                switch (subject) {
+                    case "run": {
+                        ws.send(body);
+
+                        body = JSON.parse(body)
+                        document.getElementById("input").value = body.cmd
+                        document.getElementById("code").value = Object.values(body.data)[0]
+                        document.getElementById("filename").value = Object.keys(body.data)[0]
+                        
+                        break
+                    }
+                }
+            } else {
+                switch (subject) {
+                    case "run": {
+                        //document.getElementById("output").innerText += "> " + body + "\n"
+                        console.warn("todo", body);
+
+                        console.warn(body)
+                        console.warn(typeof body)
+
+
+                        print(body)
+
+                        body = JSON.parse(body)
+
+                        document.getElementById("input").value = body.cmd
+                        document.getElementById("code").value = Object.values(body.data)[0]
+                        document.getElementById("filename").value = Object.keys(body.data)[0]
+
+                        break
+                    }
+
+                    case "update": {
+                        console.warn("todo", body);
+                        let e = {}
+                        e["data"] = body
+                        print(e)
+                        break
+                    }
+
+                    default: {
+                        print(body)
+                        break
+                    }
+                }
+            }
+        });
+
+        function onSubmit() {
+            var command = document.getElementById("input").value;
+            var code = document.getElementById("code").value
+            var filename = document.getElementById("filename").value
+            var data = {}
+            data[filename] = code
+            // You can send message to the Web Socket using ws.send.
+
+            if (Edrys.role === "station") {
+                ws.send(JSON.stringify({
+                    "cmd": command,
+                    "data": data
+                }));
+            } else {
+                Edrys.sendMessage("run", {
+                    "cmd": command,
+                    "data": data
+                })
+            }
+
+            //output("send: " + input.value);
+            //input.value = "";
+            input.focus();
+        }
+
+        function onCloseClick() {
+            ws.close();
+        }
+
+        function output(str) {
+            var log = document.getElementById("log");
+            var escaped = str.replace(/&/, "&amp;").replace(/</, "&lt;").
+            replace(/>/, "&gt;").replace(/"/, "&quot;"); // "
+            log.innerHTML = escaped + "<br>" + log.innerHTML;
+        }
+    </script>
+</head>
+
+<body onload="init();">
+    <form onsubmit="onSubmit(); return false;">
+        filename:
+        <input type="text" id="filename" placeholder="main.c">
+        <br>
+        <textarea style="width: 100%; height: 320px;" id="code">
+#include <stdio.h>
+
+int main (void){
+    int i = 0;
+    int max = 20;
+                
+    for(i=0; i<max; i++)
+        printf ("Hello, world %d!\n", i);
+                
+    return 0;
+}
+        </textarea>
+        <br />
+        command:
+        <input type="text" id="input">
+        <input type="submit" value="Send">
+        <div id="log" style="white-space: pre; max-height: 300px; overflow: auto; padding: 5px "></div>
+
+
+
+        <button onclick="onCloseClick(); return false;">close</button>
+    </form>
+</body>
+
+</html>
